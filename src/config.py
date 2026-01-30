@@ -36,4 +36,4 @@ class AppConfig:
     @staticmethod
     def validate_keys():
         if not AppConfig.GEMINI_API_KEY:
-            raise ValueError("System Error: Gemini API Key not found in .env")
+            raise ValueError("System Error: Gemini API Key not found in .env or Secrets.")
