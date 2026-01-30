@@ -1,11 +1,28 @@
 import os
+import streamlit as st
 from dotenv import load_dotenv
 
 load_dotenv()
 
 class AppConfig:
-    # 1. Load YOUR Gemini Key
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY") or ""
+    # ------------------------------------------------------------
+    # HYBRID KEY LOADING
+    # 1. Try loading from local .env (os.getenv)
+    # 2. If not found, try loading from Streamlit Cloud (st.secrets)
+    # ------------------------------------------------------------
+    
+    _key = os.getenv("GEMINI_API_KEY")
+    
+    # Check if we are on Streamlit Cloud and the key was missing locally
+    if not _key:
+        try:
+            # st.secrets behaves like a dictionary
+            if "GEMINI_API_KEY" in st.secrets:
+                _key = st.secrets["GEMINI_API_KEY"]
+        except (FileNotFoundError, KeyError):
+            pass
+
+    GEMINI_API_KEY: str = _key or ""
     
     # 2. Constraints
     MAX_FREE_MESSAGES: int = 3
