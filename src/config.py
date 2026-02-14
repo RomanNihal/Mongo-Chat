@@ -22,6 +22,10 @@ class AppConfig:
     MAX_OUTPUT_TOKENS: int = 1000
     DOC_FETCH_LIMIT: int = 50
     MODEL_NAME: str = "gemini-2.5-flash"
+
+    # --- RATE LIMITS (Gemini Free Tier) ---
+    MAX_RPM: int = 5      # Requests Per Minute
+    MAX_RPD: int = 20     # Requests Per Day
     
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60

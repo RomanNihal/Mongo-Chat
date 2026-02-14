@@ -63,13 +63,33 @@ def login_view():
 
 # --- APP VIEW (Chat) ---
 def main_app_view():
-
-# --- SIDEBAR: DATABASE CONNECTION ---
+    user_svc = UserService()
+    
+    # --- FETCH USAGE STATS ---
+    # We fetch this fresh every rerun to ensure accuracy
+    usage_count, usage_limit, hours_left = user_svc.get_usage_stats(st.session_state.user_email)
+    
     with st.sidebar:
+        # ... (Keep User Profile & Logout) ...
         st.write(f"👤 **{st.session_state.username}**")
+
+        # ✅ RESTORE LOGOUT BUTTON HERE
         if st.button("Log out", type="secondary"):
-            st.session_state.clear()
-            st.rerun()
+            st.session_state.clear() # Wipes session (auth, token, db connection)
+            st.rerun() # Refreshes to show Login View
+        
+        # --- NEW: USAGE DISPLAY ---
+        st.divider()
+        st.subheader("📊 Usage")
+        
+        # Calculate percentage for progress bar
+        pct = min(usage_count / usage_limit, 1.0)
+        st.progress(pct, text=f"{usage_count} / {usage_limit} Messages")
+        
+        if usage_count >= usage_limit:
+            st.error(f"Limit Reached! Resets in {int(hours_left)}h {int((hours_left%1)*60)}m")
+        else:
+            st.caption(f"Resets in {int(hours_left)}h")
         
         st.divider()
         st.header("🔌 Database Connection")
@@ -140,10 +160,11 @@ def main_app_view():
             st.markdown(msg["content"])
 
     if prompt := st.chat_input("Ask about your data..."):
-        if check_usage_limit():
-            st.error("Limit reached.")
-            st.stop()
-            
+        # --- 1. BLOCK IF LIMIT REACHED ---
+        if usage_count >= usage_limit:
+            st.error(f"🚫 Daily limit of {usage_limit} messages reached. Please wait {int(hours_left)} hours.")
+            return # Stop execution here
+
         st.session_state.chat_history.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
@@ -151,19 +172,21 @@ def main_app_view():
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 try:
-                    if not AppConfig.GEMINI_API_KEY:
-                        st.error("Server Error: Gemini Key not configured.")
-                        st.stop()
-
+                    # (Keep your existing LLM logic)
                     llm_svc = GeminiService(api_key=AppConfig.GEMINI_API_KEY)
                     response_text = llm_svc.generate_response(
                         context_data=st.session_state.mongo_data,
                         user_question=prompt
                     )
+                    
                     st.markdown(response_text)
                     st.session_state.chat_history.append({"role": "assistant", "content": response_text})
-                    increment_message_count()
-                    st.rerun()
+                    
+                    # --- 2. INCREMENT DB COUNTER ---
+                    # Only increment if successful
+                    user_svc.increment_usage(st.session_state.user_email)
+                    
+                    st.rerun() # Refresh to update the sidebar bar immediately
                 except Exception as e:
                     st.error(str(e))
 
