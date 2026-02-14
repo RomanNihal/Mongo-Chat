@@ -5,35 +5,36 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class AppConfig:
-    # ------------------------------------------------------------
-    # HYBRID KEY LOADING
-    # 1. Try loading from local .env (os.getenv)
-    # 2. If not found, try loading from Streamlit Cloud (st.secrets)
-    # ------------------------------------------------------------
+    # --- SECRETS (Force String Type) ---
+    # We use 'or ""' to ensure it's never None, solving the Pylance error
+    MASTER_MONGO_URI: str = os.getenv("MASTER_MONGO_URI") or st.secrets.get("MASTER_MONGO_URI") or ""
     
-    _key = os.getenv("GEMINI_API_KEY")
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET") or st.secrets.get("JWT_SECRET") or "unsafe_default"
     
-    # Check if we are on Streamlit Cloud and the key was missing locally
-    if not _key:
-        try:
-            # st.secrets behaves like a dictionary
-            if "GEMINI_API_KEY" in st.secrets:
-                _key = st.secrets["GEMINI_API_KEY"]
-        except (FileNotFoundError, KeyError):
-            pass
-
-    GEMINI_API_KEY: str = _key or ""
+    # Fernet requires bytes or string. We ensure it's a string here.
+    ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY") or st.secrets.get("ENCRYPTION_KEY") or ""
     
-    # 2. Constraints
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY") or ""
+    
+    # --- CONSTANTS ---
+    # These must be declared as static class variables
     MAX_FREE_MESSAGES: int = 3
     MAX_OUTPUT_TOKENS: int = 1000
     DOC_FETCH_LIMIT: int = 50
     MODEL_NAME: str = "gemini-2.5-flash"
     
-    PAGE_TITLE: str = "MongoChat"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    
+    PAGE_TITLE: str = "MongoChat Platform"
     PAGE_ICON: str = "🍃"
 
     @staticmethod
-    def validate_keys():
+    def validate_secrets():
+        """Runtime check to ensure keys are valid"""
+        if not AppConfig.MASTER_MONGO_URI:
+            raise ValueError("Configuration Error: MASTER_MONGO_URI is missing.")
+        if not AppConfig.ENCRYPTION_KEY:
+            raise ValueError("Configuration Error: ENCRYPTION_KEY is missing.")
         if not AppConfig.GEMINI_API_KEY:
-            raise ValueError("System Error: Gemini API Key not found in .env or Secrets.")
+            raise ValueError("Configuration Error: GEMINI_API_KEY is missing.")
